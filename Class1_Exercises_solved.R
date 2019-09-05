@@ -43,6 +43,7 @@ mean(df$siblings)
 df$actualnumber <- c(0,2,0,1,3,3)
 df$off <- df$siblings - df$actualnumber
 
+##
 
 
 ###########Exercise 3
