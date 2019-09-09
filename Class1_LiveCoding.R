@@ -211,3 +211,10 @@ pet_frame <- data.frame(names=names n_pets=n_pets)
 
 
 
+
+#######################################################################################################3
+#Solutions to exercises are in a separate file
+
+
+
+
