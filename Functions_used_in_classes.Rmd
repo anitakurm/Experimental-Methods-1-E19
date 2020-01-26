@@ -1,0 +1,134 @@
+---
+title: "Functions we have learned"
+author: "Anita"
+date: "10/31/2019"
+output: html_document
+---
+
+## Class 1
+c()
+data.frame()
+class()
+type()
+as.character()
+as.numeric()
+length()
+subset() <- same as filter() from tidyverse
+round()
+unique()
+mean()
+
+ 
+Indexing:
+  df[row index, column index] <- use 'Roman Catholics' heuristic (Roman - rows come first, Catholics - columns come second)
+
+Logical operators:
+  Comparisons:
+    >
+    <
+    >=
+    <=
+    ==
+    !=
+    
+  Boolean operators:
+    |
+    &
+  
+
+    
+
+## Class 2
+
+### Tidyverse
+filter()
+    Example: filter by any of specified values: columnname %in% c()
+    filter(df, name %in% c("Pernille", "Gustav"))
+
+arrange()
+
+desc() - descending order
+  used in arrange(dataframe, desc(variable))
+
+select() - decreasing size of subset; can be used for ordering
+  Examples:
+    #remove first column
+    df <- select(df,-1)
+    
+    #remove several columns:
+    notouch_sound_taste <- select(df,-c(touch_floor,touch_hands, sound_level_pref:taste_blind))
+    
+    #rearrange
+    rearranged <- select(df,gender,shoesize, everything())
+
+mutate()
+  mutated <- mutate(df, breath_hold_min = breath_hold/60)
+  df <- mutate(df,cealing = (romberg_open == 120))
+
+%/% returns the whole number of times the number is dividable by something
+  e.g. 65 %/% 60 returns 1
+       121 %/% 60 returns 2
+
+summarise()
+  This function collapses the whole dataframe into a single summary. For this function to work, it has to follow certain pattern.  First, you specify the data frame you want to summarise and then you say what values you want to have in your summary.
+
+See examples in the chunk below, try to run it and make sense of results:
+
+```{r}
+#Make a summary with just one value - the average shoesize 
+summarise(df,mean(shoesize))
+
+#summary with several values: the average shoesize and its standard deviation
+summarise(df,mean(shoesize),sd(shoesize))
+```
+
+
+
+summarise() is quite useless by itself, but everything changes when we **group** our data!
+
+group_by() 
+  group_by() takes an existing data frame and converts it into a data frame grouped by some principle. See examples in the chunk below:
+
+```{r}
+#group data by gender
+grouped_bygender <- group_by(df, gender)
+
+#group data by native language
+grouped_bylanguage <- group_by(df, native_Danish)
+
+```
+
+
+%>% 
+  pipes, reads as: send the resulting dataframe to the next function
+
+## Class 3
+### R markdown:
+Command 1: find default chunk options (opts_chunk), and set the setting echo (whether to show your code) to TRUE 
+knitr::opts_chunk$set(warning=TRUE, message=TRUE)
+
+Command 2: set a new working directory to ALL chunks - not just the current chunk
+knitr::opts_knit$set(root.dir = 'relative_path_to_root_from_Rmd' )
+
+You can make a new R code chunk using keyboard shortcut
+Ctrl + Alt + I (Cmd + Option + I on macOS). 
+
+
+## Class 4
+
+## Class 5
+
+## Class 6
+t.test(Continuous outcome variable ~ Categorical predictor varibale, data = dataFrame, paired = FALSE/TRUE, var.equal = FALSE/TRUE)
+
+Going through checking normality assumptions and transformation again!
+
+In case if data can't be helped:
+WRS2::yuen(Reaction_Time ~ Gender, data = data) for independent t-test
+WRS2::yuend(x, y, tr = 0.2) for paired t-test
+
+## Class 7
+
+## Class 8
+
+##

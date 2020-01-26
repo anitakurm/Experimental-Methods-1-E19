@@ -1,0 +1,40 @@
+---
+title: "Exercises for Class 9"
+author: "Anita Kurm"
+date: "11/21/2019"
+output: html_document
+---
+
+### Part 1 Exerice: The Stroop Task
+1. Read in all of your data (there is code for it below, but you are free to try making it yourself)
+2. Think about a model you could build to test whether emotionally charged words increase reaction time compared to neutral words.
+3. Discuss with people at your table
+    - Which variables should be the fixed effects?
+    - Which variables should be the random effects?
+    - Which variables should be the random slope and random intercept?
+    
+4. Build the model
+
+Optional: 
+5. Check its residual plot: using command plot(model)
+6. Build another model and compare which one is the best
+7. Report the best model using write-up instructions from above
+
+
+
+
+```{r}
+#Read in all the csv files from a folder and bind them together
+df <- list.files(path = "EmotionalStroopTask", pattern = "*.csv", full.names = T) %>% 
+  lapply(read_csv) %>% 
+  bind_rows()
+
+df$Gender <- as.factor(df$Gender)
+df$ID <- as.factor(df$ID)
+df$Valence <- as.factor(df$Valence)
+model <- lm(Reaction_time ~ Sentiment+Valence , data = df)
+summary(model)
+
+car::vif(model)
+
+```

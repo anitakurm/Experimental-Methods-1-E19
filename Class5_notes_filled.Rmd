@@ -1,0 +1,246 @@
+---
+title: "Class5_notes"
+author: "Anita"
+date: "10/9/2019"
+output: html_document
+---
+
+## Welcome to Class 5!
+
+Today we will go beyond descriptive statistics in R and look at *correlations*!
+
+
+We will need libraries tidyverse and pastecs
+We will also need the small_subset.csv as an example, I recommend calling it 'df' to be consistent with my code.
+```{r load/install packages/load data}
+pacman::p_load(tidyverse, pastecs)
+
+df <- read.csv("small_subset.csv")
+```
+
+
+### Part 1: Calculating Covariance and Correlation
+
+#### Understanding Covariance
+
+For the equation, we need:
+  deviation of each score from the mean of each of the varibales
+  degrees of freedom 
+
+```{r}
+
+df <- df %>%
+  mutate(shoesize_dev = shoesize - mean(shoesize),
+         breath_dev = breath_hold - mean(breath_hold),
+         crossProdDev = shoesize_dev * breath_dev) #calculate cross-product deviations: for every participant, multiply x score deviation by y score deviation
+
+#number of rows in our data minus 1
+degrees = nrow(df) - 1
+
+covariance = sum(df$crossProdDev) / degrees #sum all cross-products of deviations and divide by degrees of freedom
+covariance
+
+#LUCKILY, THERE IS A FUNCTION FOR IT:
+covfunction_output <- cov(df$shoesize, df$breath_hold) 
+
+```
+
+
+#### Understanding Correlation
+
+For the equation, we need:
+  value of covariance 
+  standard deviations of both variables
+  
+```{r}
+
+#Standardize covariance by dividing it by the product of standard deviations of both variables
+correlation = covariance/(sd(df$shoesize)*sd(df$breath_hold))
+
+#LUCKILY, THERE IS A FUNCTION FOR IT:
+cor.test(df$shoesize, df$breath_hold, method = 'pearson')
+
+#you can store the whole output and access its parts
+output_pearson <- cor.test(df$shoesize, df$breath_hold, method = 'pearson')
+r_pearson <- output_pearson$estimate #keepint the estimate from the output of previous line
+
+
+#see if there is difference
+correlation
+r_pearson
+
+
+```
+
+
+Is it meaningful though?
+
+```{r}
+#test
+round(pastecs::stat.desc(cbind(df$shoesize, df$breath_hold), basic = FALSE, norm = TRUE), digits = 2) #not normally distributed at all
+
+```
+
+Not really, we can try again after we've transformed our data, (log transform definitely helps breathhold data, shoesize seems to be trickier). We won't do it this time.
+
+Another way around the problem with non-normally distributed data is to use other correlation coefficients, like Spearman's rho or Kendall's tau. 
+
+```{r}
+output_spearman <- cor.test(df$shoesize, df$breath_hold, method = 'spearman')
+r_spearman <- output_spearman$estimate
+
+output_spearman
+r_spearman
+
+
+
+output_kendall <- cor.test(df$shoesize, df$breath_hold, method = 'kendall')
+tau <- output_kendall$estimate
+
+output_kendall
+tau
+
+
+```
+
+--- 
+
+### Part 2: Working with Reading Experiment Data
+
+We've got some interesting data to work with!
+
+Load your reading experiment logfile (it should be in the same folder as this Rmd file, which is your working directory)
+
+```{r}
+
+rdf <- read.csv("sample_logfile.csv")
+```
+
+
+We have one continuous variable in our logfile - reading time. 
+
+Here is an example of how to calculate word length for all words in the dataframe: 
+```{r}
+#create a random dataframe as an example 
+example <- data.frame(words = c("This", "is", "not", "a", "real", "dataframe"),
+             rt = rnorm(n = 6, mean = 2, sd = 0.1)) #sample 6 random values from a normal distribution with the mean of 2 and sd of 0.1
+
+#see the freshly made 'example' dataframe
+example
+
+#words need to be characters in order to calculate their length
+example$words <- as.character(example$words)
+
+#count characters in the column 'words' using function nchar() and put it into a new column
+example$wordlength <- nchar(example$words)
+
+#see the new 'example' dataframe with word length values 
+example
+
+```
+
+Given the example above, calculate length of words in your logfile:
+```{r}
+#words need to be characters in order to calculate their length
+rdf$word <- as.character(rdf$word)
+
+#count characters in the column 'words' using function nchar() and put it into a new column
+rdf$wordlength <- nchar(rdf$word)
+```
+
+
+Analysis of reading data 
+• Assumptions: are your data normally distributed?
+– Make qq-plot, histogram and use stat.desc() on RT
+• Transformations:
+– Use mutate to create log(RT), sqrt(RT) and 1/RT
+– Go through through the assumptions check again: which variable should we use for our analysis?
+• Correlational test:
+– Perform a correlational test on your data using cor.test()
+– Make a scatterplot of the reaction times and word lengths and add a regression line
+• Report the results:
+– Example: “RT was found to negatively correlate with word length, r = - 0.71, t(60) = -0.65, p = .02, R2 = 0.50”.
+
+```{r}
+#check normality
+round(pastecs::stat.desc(cbind(rdf$rt, rdf$wordlength), basic = FALSE, norm = TRUE), digits = 2) #not normally distributed at all
+
+#transform?
+rdf <- rdf %>% 
+  mutate(rt_log = log(rt),
+         wordlength_log = log(wordlength),
+         rt_sqrt = sqrt(rt),
+         wordlength_sqrt = sqrt(wordlength),
+         rt_rec = 1/rt,
+         wordlength_rec = 1/wordlength)
+
+#which transformation was the best for rt?
+round(pastecs::stat.desc(cbind(rdf$rt, rdf$rt_log, rdf$rt_sqrt, rdf$rt_rec), basic = FALSE, norm = TRUE), digits = 2)
+
+#which transformation was the best for wordlength?
+round(pastecs::stat.desc(cbind(rdf$wordlength, rdf$wordlength_log, rdf$wordlength_sqrt, rdf$wordlength_rec), basic = FALSE, norm = TRUE), digits = 2)
+
+#log transform and sqrt transform seem to be better, but still don't fix the non-normality
+round(pastecs::stat.desc(cbind(rdf$rt, rdf$rt_log, rdf$wordlength_sqrt), basic = FALSE, norm = TRUE), digits = 10)
+
+
+#run pearson 
+output_pearson <- cor.test(rdf$rt_log, rdf$wordlength_sqrt, method = 'pearson')
+r_pearson <- output_pearson$estimate
+
+#it's more reasonable to run Spearman
+output_spearman <- cor.test(rdf$rt, rdf$wordlength, method = 'spearman')
+r_spearman <- output_spearman$estimate
+
+
+r_pearson
+r_spearman
+
+
+```
+
+
+
+--- 
+
+### Part 3: Scatter plot and reporting results
+
+```{r}
+ggplot(rdf,aes(wordlength, rt))+
+  geom_point() +
+  geom_smooth(method="lm")+ #linear model
+  theme_minimal()+
+  xlab("Word Length")+
+  ylab("Reading Time")+
+  ggtitle("Reading time as is")
+
+#scatterplot
+ggplot(rdf,aes(wordlength, rt))+
+  geom_point(stat = "summary", fun.y = mean) +
+  geom_smooth(method="lm")+ #linear model
+  theme_minimal()+
+  xlab("Word Length")+
+  ylab("Reading Time")+
+  ggtitle("Reading time grouping by word length")
+
+
+ggplot(rdf,aes(wordlength, rt))+
+  geom_point(stat = "summary", fun.y = mean) +
+  geom_smooth(method="lm") #linear model
+
+
+ggplot(df,aes(df$shoesize, df$shoesize))+
+  geom_point()+
+  geom_smooth(method="lm") +
+  theme_minimal()
+```
+
+
+• Report the results:
+APA format:
+r(degrees of freedom) = correlation coefficient estimate, p = p-value
+Degrees of freedom are (N - 2) for correlations
+You can also report shared variance: R2 
+
+Example:  “Reading time (RT) was found to negatively correlate with word length, r(60) = - 0.71, p = .02, R2  = 0.50”
+

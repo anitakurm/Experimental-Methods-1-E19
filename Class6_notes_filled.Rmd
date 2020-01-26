@@ -1,0 +1,281 @@
+---
+title: "Class6_notes"
+author: "Anita"
+date: "10/28/2019"
+output: html_document
+---
+
+## Welcome to Class 6!
+
+Today we will learn how to perform a **t-test** on your reading experiment data! 
+
+  (R Markdown tips: ** around words make them bold in the markdown output, while *  makes them in italics) 
+
+First, set up! 
+
+1) Make sure to 'Save as' this R markdown file into some folder on your computer - once you saved it somewhere, this folder will be **your working directory**. Ideally, it is the folder of your currently open project, but it's completely up to you, as long as you know where to find this markdown file!
+
+2) Make sure that your folder with data from the reading experiment is in **your working directory** too. Move it there if it isn't. To make it easier for yourself, name the folder with data 'data'
+
+3) We will need libraries: tidyverse, pastecs, WRS2. Install them if you don't have them yet.
+```{r setup}
+pacman::p_load(tidyverse, pastecs, WRS2)
+```
+
+
+### Part 1: importing data from a list of files
+We have asked you to collect data from several participants, which means your data is contained in several log files. While you could manually read in data from every file separately, we can do it much faster thanks to the following functions:
+
+  list.files() which produces a character vector of the names of files in the named directory 
+  
+  laplly() which applies a function to each element in a vector ( map() function from purr does the same )
+  
+  read_csv() which reads csv files into a *tibble*. This function is very similar to read.csv() that reads files into a *dataframe*. Tibbles are apparently just a better version of dataframes (read more: https://cran.r-project.org/web/packages/tibble/vignettes/tibble.html)
+  
+  bind_rows() which binds multiple data frames by row (adds rows of one dataframe to rows of other dataframe)
+
+```{r}
+#get a vector with names of files using list.files() 
+files <- list.files(path = "data",          #put the name of your folder with data here
+                    pattern = ".csv",       #everything that contains '.csv' in its name will be listed
+                    full.names = T)         #includes directory path, so instead of 'logfile_1.csv' it will be 'data/logfile_1.csv')
+
+#read all the files into a tibble (a fancy df) by applying read_csv() to every filename in files vector and binding rows from resulting tibbles together
+data <- lapply(files, read_csv) %>% bind_rows()
+
+```
+
+
+
+### Part 2: hands-on t-test in R
+Find documentation for the t.test function using ? or help(), look through it. As you can see, there are different arguments you can change to tailor the t.test to your needs and data. We will go through the default version of t.test and the arguments that you can change!
+
+2.1 Independent Welch t-test (default): t.test(Measure ~ Group) 
+Performs Welch Two Sample t-test, which is an independent (unpaired) t-test. It requires your data to be normally distributed in both groups and allows variances in these groups to be different.
+
+```{r}
+#the default t-test using formula: Measure ~ Group
+t.test(data$Reaction_Time ~ data$Gender)
+```
+
+
+2.2 Independent Student's t-test: t.test(Measure ~ Group, var.equal = T)
+'var.equal' argument is a logical variable indicating whether to treat the two variances as being equal. When set to true, your variances are assumed to be equal in two groups, and test becomes a Student's t-test. It assumes that the two populations have normal distributions with equal variances. 
+```{r}
+t.test(data$Reaction_Time ~ data$Gender, var.equal = T) # a student's t-test, rather than the default Welch's
+```
+
+
+2.3 A paired t-test: t.test(Measure ~ Group, paired = T)
+'paired' argument indicates whether you want a paired t-test (aka repeated measures: both group 1 and group 2 consist of the same participants ). It's meaningless in the context of our study, but you can try to run it anyway. 
+More information can be found: http://www.sthda.com/english/wiki/paired-samples-t-test-in-r 
+```{r}
+data2 <- data[-301,]
+t.test(data2$Reaction_Time ~ data2$ID, paired = T) # a paired t-test (dependent), #!# needs exactly the same amount of observations in every condition to work
+```
+
+
+2.4 A one sample t-test: t.test(Measure, mu = 0)
+mu is a number indicating the true value of the mean. One-sample t-test is used to compare the mean of one sample to a known standard (or theoretical/hypothetical) mean (mu). Generally, the theoretical mean comes from either a previous experiment or from specifics of your experimental design. 
+More information: http://www.sthda.com/english/wiki/one-sample-t-test-in-r
+```{r}
+t.test(data$Reaction_Time, mu = 0.5) # a one sample t-test: is it different from the theoretical mean of 0.5
+```
+
+All of the tests above require our data to be normally distributed. What to do when it's not the case?
+
+2.5 t-tests from the WRS2 package allow us to 'trim' some part of data from the tails of distribution to deal with non-normal distributions.
+  2.5.1  Independent t-test: WRS2::yuen(Measure ~ Group, data = data)
+```{r}
+ WRS2::yuen(data$Reaction_Time ~ data$Gender, data = data)
+```
+  
+  2.5.2 Paired t-test: WRS2::yuend(x, y, tr = 0.2)
+```{r}
+#probably won't work since our experiment was not actually repeated measures design
+#WRS2::yuen(data2$Reaction_Time, data2$Gender, tr =0.2)
+```
+  
+
+### Part 3: Your Reading Data Analysis
+3.1 Checking Assumptions: are your data normally distributed?
+Give a visual and statistical answer (remember that you can reuse your Class4_notes and other old code)
+Note that you need to check assumptions for reading time data in condition 1 and condition 2 separately, since those represent data from different groups! How can you do that? 
+```{r}
+#first, remove outliers from the whole data (everything 3 sd away from the mean)
+#calculate z score
+data$rt_z = (data$Reaction_Time -mean(data$Reaction_Time))/sd(data$Reaction_Time)
+
+#filter data 
+no_outliers = data %>% filter(rt_z > -3 & rt_z < 3) 
+
+#subsetting data
+cond1 <- no_outliers %>% filter(ID == 1)
+cond2 <- no_outliers %>% filter(ID == 2)
+
+############ Checking Assumptions for Condition 1
+#histogram
+ggplot(cond1, aes(x = Reaction_Time)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.25) +
+  ggtitle("Distribution of reading time data in Condition 1") +
+  stat_function(fun = dnorm, args = list(mean = mean(cond1$Reaction_Time, na.rm = TRUE), sd = sd(cond1$Reaction_Time, na.rm = TRUE)), colour = "darkgreen", size = 1) +
+  theme_minimal()
+
+#qqplot
+ggplot(cond1, aes(sample = Reaction_Time )) +
+  stat_qq() +
+  stat_qq_line(colour = 'red') +
+  ggtitle("Qqplot for reading time data in Condition 1") +
+  theme_minimal()
+
+
+
+############ Checking Assumptions for Condition 2
+#histogram
+ggplot(cond2, aes(x = Reaction_Time)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.25) +
+  ggtitle("Distribution of reading time data in Condition 2") +
+  stat_function(fun = dnorm, args = list(mean = mean(cond2$Reaction_Time, na.rm = TRUE), sd = sd(cond2$Reaction_Time, na.rm = TRUE)), colour = "darkgreen", size = 1) +
+  theme_minimal()
+
+#qqplot
+ggplot(cond2, aes(sample = Reaction_Time )) +
+  stat_qq() +
+  stat_qq_line(colour = 'red') +
+  ggtitle("Qqplot for reading time data in Condition 2") +
+  theme_minimal()
+
+#stat.desc
+round(pastecs::stat.desc(cbind(cond1$Reaction_Time, cond2$Reaction_Time), basic = FALSE, norm = TRUE), digits = 2)
+
+```
+
+
+3.2 Transformation of data (if needed)
+First, remove obvious outliers in the data. Then try to apply a transformation to the data to make them normally distributed. It's a common practice to log-transform reaction time data, does it work for you?
+```{r}
+
+#we removed outliers before
+
+#make columns with transformed data
+cond1 <- cond1 %>% 
+  mutate(rt_log = log(Reaction_Time),
+         rt_sqrt = sqrt(Reaction_Time),
+         rt_rec = 1/Reaction_Time)
+
+cond2 <- cond2 %>% 
+  mutate(rt_log = log(Reaction_Time),
+         rt_sqrt = sqrt(Reaction_Time),
+         rt_rec = 1/Reaction_Time)
+
+#stat.desc 
+round(pastecs::stat.desc(cbind(cond1$rt_log, cond1$rt_sqrt, cond1$rt_rec), basic = FALSE, norm = TRUE), digits = 2)
+
+round(pastecs::stat.desc(cbind(cond2$rt_log, cond2$rt_sqrt, cond2$rt_rec), basic = FALSE, norm = TRUE), digits = 2)
+
+#normally log transformation is the best here, but there isn't much data, so reciprocal transformation seems to fit it better
+
+#Check assumptions again
+############ Checking Assumptions for Condition 1 (best candidates: log and rec)
+#histogram
+ggplot(cond1, aes(x = rt_log)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.25) +
+  ggtitle("Distribution of reading time data (log transformed) in Condition 1") +
+  stat_function(fun = dnorm, args = list(mean = mean(cond1$rt_log, na.rm = TRUE), sd = sd(cond1$rt_log, na.rm = TRUE)), colour = "darkgreen", size = 1) +
+  theme_minimal()
+
+#qqplot
+ggplot(cond1, aes(sample = rt_log )) +
+  stat_qq() +
+  stat_qq_line(colour = 'red') +
+  ggtitle("Qqplot for reading time data (log transformed) in Condition 1") +
+  theme_minimal()
+
+#histogram
+ggplot(cond1, aes(x = rt_rec)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.25) +
+  ggtitle("Distribution of reading time data (reciprocal transformed) in Condition 1") +
+  stat_function(fun = dnorm, args = list(mean = mean(cond1$rt_rec, na.rm = TRUE), sd = sd(cond1$rt_rec, na.rm = TRUE)), colour = "darkgreen", size = 1) +
+  theme_minimal()
+
+#qqplot
+ggplot(cond1, aes(sample = rt_rec )) +
+  stat_qq() +
+  stat_qq_line(colour = 'red') +
+  ggtitle("Qqplot for reading time data (reciprocal transformed) in Condition 1") +
+  theme_minimal()
+
+
+
+############ Checking Assumptions for Condition 2 (best candidates: log and rec)
+#histogram
+ggplot(cond2, aes(x = rt_log)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.25) +
+  ggtitle("Distribution of reading time data (log transformed) in Condition 2") +
+  stat_function(fun = dnorm, args = list(mean = mean(cond2$rt_log, na.rm = TRUE), sd = sd(cond2$rt_log, na.rm = TRUE)), colour = "darkgreen", size = 1) +
+  theme_minimal()
+
+#qqplot
+ggplot(cond2, aes(sample = rt_log )) +
+  stat_qq() +
+  stat_qq_line(colour = 'red') +
+  ggtitle("Qqplot for reading time data (log transformed) in Condition 2") +
+  theme_minimal()
+
+
+#histogram
+ggplot(cond2, aes(x = rt_rec)) +
+  geom_histogram(aes(y = ..density..), binwidth = 0.25) +
+  ggtitle("Distribution of reading time data (reciprocal transformed) in Condition 2") +
+  stat_function(fun = dnorm, args = list(mean = mean(cond2$rt_rec, na.rm = TRUE), sd = sd(cond2$rt_rec, na.rm = TRUE)), colour = "darkgreen", size = 1) +
+  theme_minimal()
+
+#qqplot
+ggplot(cond2, aes(sample = rt_rec )) +
+  stat_qq() +
+  stat_qq_line(colour = 'red') +
+  ggtitle("Qqplot for reading time data (reciprocal transformed) in Condition 2") +
+  theme_minimal()
+
+
+##### reciprocal it is,. bind cond1 and cond2 together and keep only the needed transformation
+transformed_data <- bind_rows(cond1, cond2) %>% 
+  select(-c(rt_z, rt_log, rt_sqrt))
+
+```
+
+
+3.3 T-test
+Perform a t-test to test if there is a significant difference in reading time between conditions of your experiment. If you performed previous assumptions check and data transformation on subsets of data, make sure you perform the t-test on the whole dataset that contains both conditions and potentially your transformed reaction time variable.
+```{r}
+t.test(transformed_data$rt_rec ~ transformed_data$ID)
+```
+
+
+3.4 Visualize the results. For that, make a plot that demonstrates the mean value of reading time in two conditions. It could be for example a bar plot or box plot or violin plot (you can reuse code from Class4_notes if you want). Remember that ggplot wants your condition variable to be a factor to plot data in 2 different groups. 
+
+```{r}
+transformed_data$ID <- as.factor(transformed_data$ID)
+ggplot(transformed_data, aes(x = ID, y = rt_rec, colour = ID)) +
+  theme_minimal() +
+  labs(x = "Condition", y = "Reading time (reciprocal transform)") +
+  geom_boxplot(width = 0.5) +
+  ggtitle("Box Plot: reciprocally transformed reading time depending on condition")
+
+```
+
+3.5 Report the results
+
+Example: *Using an independent t-test, we found that the unexpected word did not significantly increase the average reading time of a word, t(7.66) = 0.46, p > .05, r = 0.16, (M exp = 0.45, M unexp = 0.49)*
+
+M exp and M unexp stand for the mean values in 2 groups, in this case Expected Condition and Unexpected Condition. You can definitely change the way you want to refer to different groups in your experiment. 
+
+
+
+### Part 4 (optional): Extra for your reading data analysis
+
+4.1 Try and compare the results of Welch’s t-test with the results of Student’s t-test. How do they compare?
+
+4.2 T-test can also be made as a linear model (see Fields 9.4.2) try it out and see if you get similar results (you extract the output from a saved linear model using summary())
+
+
